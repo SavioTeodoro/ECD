@@ -1,0 +1,59 @@
+CREATE OR REPLACE PROCEDURE "AD_STP_UPD_TCBLALURSAL" (
+       P_CODUSU NUMBER,        -- Código do usuário logado
+       P_IDSESSAO VARCHAR2,    -- Identificador da execução. Serve para buscar informações dos parâmetros/campos da execução.
+       P_QTDLINHAS NUMBER,     -- Informa a quantidade de registros selecionados no momento da execução.
+       P_MENSAGEM OUT VARCHAR2 -- Caso seja passada uma mensagem aqui, ela será exibida como uma informação ao usuário.
+) AS
+       PARAM_REFERENCIA DATE;
+       PARAM_SALDO FLOAT;
+       FIELD_CONTAPARTEB FLOAT;
+       FIELD_REFERENCIA DATE;
+       V_TRAVA VARCHAR2(1);
+       V_MANUAL VARCHAR2(1); 
+       V_SALDOFIN FLOAT;      
+BEGIN
+
+
+       PARAM_REFERENCIA := ACT_DTA_PARAM(P_IDSESSAO, 'REFERENCIA');
+       PARAM_SALDO := ACT_DEC_PARAM(P_IDSESSAO, 'SALDO');
+
+       FOR I IN 1..P_QTDLINHAS -- Este loop permite obter o valor de campos dos registros envolvidos na execução.
+       LOOP                    -- A variável "I" representa o registro corrente.
+           FIELD_CONTAPARTEB := ACT_DEC_FIELD(P_IDSESSAO, I, 'CONTAPARTEB');
+           FIELD_REFERENCIA := ACT_DTA_FIELD(P_IDSESSAO, I, 'REFERENCIA');
+
+            SELECT MANUAL, TRAVA, SALDOFIN INTO V_MANUAL, V_TRAVA, V_SALDOFIN
+            FROM AD_TCBLALURSAL
+            WHERE CONTAPARTEB = FIELD_CONTAPARTEB
+            AND REFERENCIA = FIELD_REFERENCIA;
+
+            IF V_TRAVA = 'N' THEN 
+            RAISE_APPLICATION_ERROR (-20001, 'Não é permitido alteração na conta selecionada');
+            END IF;
+
+            IF V_TRAVA = 'S' THEN 
+            UPDATE AD_TCBLALURSAL 
+            SET SALDOINI = PARAM_SALDO, 
+            CODUSU = STP_GET_CODUSULOGADO(), 
+            DHALTER = SYSDATE,
+            MANUAL = 'S',
+            SALDOFIN = V_SALDOFIN + PARAM_SALDO
+            WHERE CONTAPARTEB = FIELD_CONTAPARTEB
+            AND REFERENCIA = FIELD_REFERENCIA; 
+            END IF;
+
+
+
+       END LOOP;
+
+
+
+
+-- <ESCREVA SEU CÓDIGO DE FINALIZAÇÃO AQUI> --
+
+
+
+END;
+
+
+/
